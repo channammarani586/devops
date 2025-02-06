@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
       - name: happyapp
-        image: abhishekf5/ultimate-cicd:22
+        image: channamma/happyapp:latest
         ports:
         - containerPort: 8080
