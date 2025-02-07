@@ -5,7 +5,7 @@ metadata:
   labels:
     app: spring-boot-app
 spec:
-  replicas: 2
+  replicas: 5
   selector:
     matchLabels:
       app: spring-boot-app
@@ -15,7 +15,7 @@ spec:
         app: spring-boot-app
     spec:
       containers:
-      - name: spring-boot-app
-        image: abhishekf5/ultimate-cicd:replaceImageTag
+      - name: happyapp
+        image: channamma/happyapp:${BUILD_NUMBER}  # Updated to use BUILD_NUMBER
         ports:
         - containerPort: 8080
