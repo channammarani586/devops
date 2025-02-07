@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
       - name: happyapp
-        image: channamma/happyapp:latest  # Replace with actual tag via CI/CD
+        image: channamma/happyapp:${BUILD_NUMBER}  # Updated to use BUILD_NUMBER
         ports:
         - containerPort: 8080
