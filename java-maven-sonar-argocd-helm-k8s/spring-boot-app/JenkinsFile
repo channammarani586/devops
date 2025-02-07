@@ -9,7 +9,7 @@ pipeline {
   environment {
     DOCKER_IMAGE = "channamma/happyapp:${BUILD_NUMBER}"
     REGISTRY_CREDENTIALS = credentials('docker-cred')
-    GIT_REPO_NAME = "JAVA-K8S-CI-CD"
+    GIT_REPO_NAME = "devops"
     GIT_USER_NAME = "channammarani586"
   }
 
@@ -27,7 +27,7 @@ pipeline {
           echo "Listing files..."
           ls -ltr
           echo "Running Maven Build..."
-          cd java-maven-k8s/spring-boot-app
+          cd java-maven-sonar-argocd-helm-k8s/spring-boot-app  # Updated path
           mvn clean package
         '''
       }
@@ -38,7 +38,7 @@ pipeline {
         script {
           sh '''
             echo "Building Docker Image..."
-            cd java-maven-k8s/spring-boot-app
+            cd java-maven-sonar-argocd-helm-k8s/spring-boot-app  # Updated path
             docker build -t ${DOCKER_IMAGE} .
             echo "Pushing Docker Image..."
           '''
@@ -57,13 +57,13 @@ pipeline {
             git config user.email "sbiradarchannamma@gmail.com"
             git config user.name "channammarani586"
             echo "Updating deployment.yml with new image tag..."
-            sed -i "s|image: channamma/happyapp:.*|image: channamma/happyapp:${BUILD_NUMBER}|" java-maven-k8s/spring-boot-app-manifests/deployment.yml
-            git add java-maven-k8s/spring-boot-app-manifests/deployment.yml
+            sed -i "s|image: channamma/happyapp:.*|image: channamma/happyapp:${BUILD_NUMBER}|" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+            git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
             git commit -m "Update deployment image to version ${BUILD_NUMBER}"
             git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
           '''
         }
       }
     }
-  } // <-- Make sure this closing brace exists for "stages"
-} // <-- Make sure this closing brace exists for "pipeline"
+  }
+}
