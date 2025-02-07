@@ -7,12 +7,18 @@ pipeline {
   }
   
   stages {
-    stage('Checkout') {
-      steps {
-        sh 'echo passed'
-        git branch: 'main', url: 'https://github.com/channammarani586/devops.git'
-      }
+   stage('Checkout') {
+  steps {
+    withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
+      sh '''
+        git config --global user.email "sbiradarchannamma@gmail.com"
+        git config --global user.name "channammarani586"
+        git clone https://channammarani586:${GITHUB_TOKEN}@github.com/channammarani586/devops.git
+      '''
     }
+  }
+}
+
     
     stage('Build and Test') {
       steps {
