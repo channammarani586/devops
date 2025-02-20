@@ -1,7 +1,8 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: spring-boot-app-service
+  name: java-svc
+  namespace: jenkins
 spec:
   type: NodePort
   ports:
@@ -10,4 +11,4 @@ spec:
     targetPort: 8080
     protocol: TCP
   selector:
-    app: spring-boot-app
+    app: java-app
