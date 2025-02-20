@@ -1,18 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: spring-boot-app
+  name: java-app
+  namespace:jenkins
   labels:
-    app: spring-boot-app
+    app: java-app
 spec:
   replicas: 5
   selector:
     matchLabels:
-      app: spring-boot-app
+      app: java-app
   template:
     metadata:
       labels:
-        app: spring-boot-app
+        app: java-app
     spec:
       containers:
       - name: happyapp
