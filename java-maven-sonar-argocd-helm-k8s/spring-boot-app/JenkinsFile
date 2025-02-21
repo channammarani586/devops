@@ -1,9 +1,9 @@
 pipeline {
   agent {
     docker {
-      image 'channamma/happyapp:4' // Use your image
-      args '-v /var/run/docker.sock:/var/run/docker.sock'
-    }
+      image 'abhishekf5/maven-abhishek-docker-agent:v1'  // Use official Maven image
+      args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
+}
   }
 
   environment {
