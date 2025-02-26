@@ -1,5 +1,5 @@
 # Use OpenJDK 17 on Alpine (lightweight)
-FROM adoptopenjdk/openjdk11:alpine-jre
+FROM adoptopenjdk/openjdk17:alpine-jre
 
 # Set working directory
 WORKDIR /opt/app
