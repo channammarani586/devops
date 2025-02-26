@@ -2,17 +2,21 @@ pipeline {
     agent any
 
     environment {
+        DOCKER_CRED = credentials('docker-cred') // Docker Hub credentials
+        GITHUB_CRED = credentials('github') // GitHub credentials
+        GITHUB_TOKEN = credentials('github-token') // GitHub token
         DOCKER_IMAGE = "channamma/happyapp:4"
+        WORK_DIR = "/home"
         GIT_REPO_NAME = "devops"
         GIT_USER_NAME = "channammarani586"
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout Repository') {
             steps {
                 script {
                     echo "🔄 Checking out repository..."
-                    git branch: 'main', url: "https://github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git"
+                    git branch: 'main', url: "https://${GITHUB_CRED}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git"
                 }
             }
         }
@@ -22,9 +26,7 @@ pipeline {
                 script {
                     echo "🐳 Pulling latest Docker image..."
                     sh """
-                        if ! docker pull ${DOCKER_IMAGE}; then
-                            echo '⚠️ Failed to pull Docker image, proceeding with the build...'
-                        fi
+                        docker pull ${DOCKER_IMAGE} || echo '⚠️ Failed to pull Docker image, proceeding with the build...'
                     """
                 }
             }
@@ -35,15 +37,15 @@ pipeline {
                 script {
                     echo "📦 Building and pushing Docker image..."
                     sh """
-                        docker build --build-arg JDK_VERSION=17 -t ${DOCKER_IMAGE} .
-                        docker login -u your-dockerhub-username -p your-dockerhub-password
+                        docker build --build-arg JDK_VERSION=17 -t ${DOCKER_IMAGE} -f ${WORK_DIR}/Dockerfile .
+                        echo "$DOCKER_CRED_PSW" | docker login -u "$DOCKER_CRED_USR" --password-stdin
                         docker push ${DOCKER_IMAGE}
                     """
                 }
             }
         }
 
-        stage('Update Deployment File') {
+        stage('Update Kubernetes Deployment') {
             steps {
                 withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
                     script {
@@ -52,13 +54,8 @@ pipeline {
                             git config --global user.email "sbiradarchannamma@gmail.com"
                             git config --global user.name "${GIT_USER_NAME}"
 
-                            if [ -f /home/nginx-deployment.yaml ]; then
-                                sed -i "s|image: channamma/happyapp:.*|image: ${DOCKER_IMAGE}|g" /home/nginx-deployment.yaml
-                                git add /home/nginx-deployment.yaml
-                            else
-                                echo "❌ Deployment file not found!"
-                                exit 1
-                            fi
+                            sed -i "s|image: nginx:latest|image: ${DOCKER_IMAGE}|g" ${WORK_DIR}/nginx-deployment.yaml
+                            git add ${WORK_DIR}/nginx-deployment.yaml
 
                             git commit -m "🔄 Updated deployment image to ${DOCKER_IMAGE}"
                             git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main || echo "⚠️ Git push failed!"
@@ -73,13 +70,8 @@ pipeline {
                 script {
                     echo "🚀 Deploying to Kubernetes..."
                     sh """
-                        if ! command -v kubectl &> /dev/null; then
-                            echo "❌ kubectl not found! Please install and configure it."
-                            exit 1
-                        fi
-
-                        kubectl apply -f /home/nginx-deployment.yaml || echo "⚠️ Deployment failed!"
-                        kubectl apply -f /home/nginx-service.yaml || echo "⚠️ Service deployment failed!"
+                        kubectl apply -f ${WORK_DIR}/nginx-deployment.yaml || echo "⚠️ Deployment failed!"
+                        kubectl apply -f ${WORK_DIR}/nginx-service.yaml || echo "⚠️ Service deployment failed!"
                     """
                 }
             }
@@ -92,4 +84,3 @@ pipeline {
         }
     }
 }
-
