@@ -52,7 +52,16 @@ pipeline {
                     sh '''
                     git config --global user.email "sbiradarchannamma@gmail.com"
                     git config --global user.name "channammarani586"
-                    sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+                    
+                    # Make sure deployment.yml exists
+                    if [ ! -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml ]; then
+                        echo "deployment.yml is missing!"
+                        exit 1
+                    fi
+
+                    # Update deployment image reference
+                    sed -i "s|image: channamma/happyapp:.*|image: channamma/happyapp:${BUILD_NUMBER}|" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+
                     git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
                     git commit -m "Update deployment image to version ${BUILD_NUMBER}"
                     git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
