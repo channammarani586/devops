@@ -1,66 +1,79 @@
 pipeline {
-  agent {
-    docker {
-      image 'abhishekf5/maven-abhishek-docker-agent:v1'
-      args '--user root -v /var/run/docker.sock:/var/run/docker.sock' // mount Docker socket
+    agent any
+
+    environment {
+        DOCKER_IMAGE = "channamma/happyapp:${BUILD_NUMBER}"
     }
-  }
-  environment {
-    DOCKER_IMAGE = "channamma/happyapp:${BUILD_NUMBER}"
-    REGISTRY_CREDENTIALS = credentials('docker-cred')
-    KUBECONFIG_CREDENTIALS = credentials('kubeconfig')
-  }
-  stages {
-    stage('Checkout') {
-      steps {
-        withCredentials([usernamePassword(credentialsId: 'github', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
-          sh '''
-            git config --global user.name "$GIT_USER"
-            git config --global user.password "$GIT_PASS"
-            git clone https://$GIT_USER:$GIT_PASS@github.com/channammarani586/devops.git
-          '''
+
+    stages {
+        stage('Checkout Code') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'github', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+                    sh '''
+                    git config --global user.name "$GIT_USER"
+                    git config --global user.password "$GIT_PASS"
+                    git clone https://$GIT_USER:$GIT_PASS@github.com/channammarani586/devops.git
+                    '''
+                }
+            }
         }
-      }
-    }
-    stage('Build and Test') {
-      steps {
-        sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && mvn clean package'
-      }
-    }
-    stage('Build and Push Docker Image') {
-      steps {
-        script {
-          sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && docker build -t ${DOCKER_IMAGE} .'
-          def dockerImage = docker.image("${DOCKER_IMAGE}")
-          docker.withRegistry('https://index.docker.io/v1/', "docker-cred") {
-            dockerImage.push()
-          }
+
+        stage('Build and Test') {
+            steps {
+                sh '''
+                cd devops/java-maven-sonar-argocd-helm-k8s/spring-boot-app
+                mvn clean package -DskipTests
+                '''
+            }
         }
-      }
-    }
-    stage('Update Deployment File') {
-      steps {
-        withCredentials([usernamePassword(credentialsId: 'github', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
-          sh '''
-            git config --global user.email "channammarani586@gmail.com"
-            git config --global user.name "channammarani586"
-            sed -i "s|replaceImageTag|${BUILD_NUMBER}|g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-            git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-            git commit -m "Update deployment image to version ${BUILD_NUMBER}"
-            git push https://$GIT_USER:$GIT_PASS@github.com/channammarani586/devops HEAD:main
-          '''
+
+        stage('Build Docker Image') {
+            steps {
+                sh '''
+                cd devops/java-maven-sonar-argocd-helm-k8s/spring-boot-app
+                docker build -t ${DOCKER_IMAGE} .
+                '''
+            }
         }
-      }
-    }
-    stage('Deploy to Kubernetes') {
-      steps {
-        withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
-          sh '''
-            export KUBECONFIG=$KUBECONFIG
-            kubectl apply -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/
-          '''
+
+        stage('Login to Docker Hub') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'docker-cred', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                }
+            }
         }
-      }
+
+        stage('Push Docker Image') {
+            steps {
+                sh 'docker push ${DOCKER_IMAGE}'
+            }
+        }
+
+        stage('Update Deployment File') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'github', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+                    sh '''
+                    git config --global user.email "channammarani586@gmail.com"
+                    git config --global user.name "channammarani586"
+                    sed -i "s|replaceImageTag|${BUILD_NUMBER}|g" devops/java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+                    git add devops/java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+                    git commit -m "Update deployment image to version ${BUILD_NUMBER}"
+                    git push https://$GIT_USER:$GIT_PASS@github.com/channammarani586/devops HEAD:main
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+                    sh '''
+                    export KUBECONFIG=$KUBECONFIG
+                    kubectl apply -f devops/java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/
+                    '''
+                }
+            }
+        }
     }
-  }
 }
