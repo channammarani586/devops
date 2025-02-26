@@ -7,10 +7,16 @@ pipeline {
     }
 
     stages {
+        stage('Cleanup Workspace') {
+            steps {
+                sh 'echo Cleaning up old workspace and builds...'
+                sh 'rm -rf *'
+            }
+        }
+
         stage('Checkout') {
             steps {
-                sh 'echo passed'
-                checkout([$class: 'GitSCM', branches: [[name: 'main']], credentialsId: 'github', userRemoteConfigs: [[url: 'https://github.com/channammarani586/devops.git']]])
+                checkout([$class: 'GitSCM', branches: [[name: 'main']], userRemoteConfigs: [[url: 'https://github.com/channammarani586/devops.git']]])
             }
         }
 
@@ -33,12 +39,10 @@ pipeline {
                     sh '''
                     cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
                     docker build -t ${DOCKER_IMAGE} .
-                    docker tag ${DOCKER_IMAGE} channamma/happyapp:latest
                     '''
                     
                     docker.withRegistry('https://index.docker.io/v1/', 'docker-cred') {
                         sh "docker push ${DOCKER_IMAGE}"
-                        sh "docker push channamma/happyapp:latest"
                     }
                 }
             }
@@ -50,20 +54,11 @@ pipeline {
                 GIT_USER_NAME = "channammarani586"
             }
             steps {
-                withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
+                withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
                     sh '''
                     git config --global user.email "sbiradarchannamma@gmail.com"
                     git config --global user.name "channammarani586"
-                    
-                    # Ensure deployment file exists
-                    if [ ! -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml ]; then
-                        echo "deployment.yml is missing!"
-                        exit 1
-                    fi
-                    
-                    # Update the image tag in deployment file
-                    sed -i "s|image: channamma/happyapp:.*|image: channamma/happyapp:${BUILD_NUMBER}|" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-                    
+                    sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
                     git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
                     git commit -m "Update deployment image to version ${BUILD_NUMBER}"
                     git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
