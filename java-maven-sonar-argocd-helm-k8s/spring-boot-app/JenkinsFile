@@ -2,77 +2,49 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "public.ecr.aws/nginx/nginx:latest" // Example public image
-        REGISTRY_CREDENTIALS = credentials('docker-cred')
-        GIT_REPO_NAME = "devops"
-        GIT_USER_NAME = "channammarani586"
+        DOCKER_IMAGE = 'channamma/happyapp:test'
+        DOCKER_CREDENTIALS_ID = 'docker-hub-credentials' // Make sure this matches your Jenkins credentials ID
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout Code') {
             steps {
-                script {
-                    echo "Checking out source code..."
-                    git branch: 'main', credentialsId: 'github', url: 'https://github.com/channammarani586/devops.git'
+                checkout scm
+            }
+        }
+
+        stage('Build Maven Project') {
+            steps {
+                sh 'mvn clean package -DskipTests'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t ${DOCKER_IMAGE} .'
+            }
+        }
+
+        stage('Login to Docker Hub') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: DOCKER_CREDENTIALS_ID, usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
                 }
             }
         }
 
-        stage('Build and Test') {
+        stage('Push Docker Image') {
             steps {
-                script {
-                    echo "Running Maven build and tests..."
-                    sh '''
-                        cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-                        mvn clean package
-                    '''
-                }
-            }
-        }
-
-        stage('Build and Push Docker Image') {
-  steps {
-    script {
-      echo "Building and pushing Docker image..."
-      sh '''
-        cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-        docker build -t myapp:${BUILD_NUMBER} .
-      '''
-      withDockerRegistry([credentialsId: "docker-cred", url: "https://index.docker.io/v1/"]) {
-        sh "docker push myapp:${BUILD_NUMBER}"
-      }
-    }
-  }
-}
-
-
-        stage('Update Deployment YAML') {
-            steps {
-                withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
-                    script {
-                        echo "Updating Kubernetes deployment file..."
-                        sh '''
-                            git config user.email "sbiradarchannamma@gmail.com"
-                            git config user.name "${GIT_USER_NAME}"
-                            sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-                            git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-                            git commit -m "Update deployment image to version ${BUILD_NUMBER}"
-                            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
-                        '''
-                    }
-                }
+                sh 'docker push ${DOCKER_IMAGE}'
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
-                script {
-                    echo "Applying Kubernetes manifests..."
-                    sh '''
-                        kubectl apply -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-                        kubectl apply -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/service.yml
-                    '''
-                }
+                sh '''
+                sed -i "s|replaceImageTag|${DOCKER_IMAGE}|g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+                kubectl apply -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+                '''
             }
         }
     }
