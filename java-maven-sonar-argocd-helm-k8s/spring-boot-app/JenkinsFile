@@ -1,10 +1,8 @@
 pipeline {
-  agent {
-    label 'docker-agent' // Replace with your Jenkins agent label that supports Docker
-  }
+  agent any
 
   environment {
-    DOCKER_IMAGE = "channamma/happyapp:${BUILD_NUMBER}"
+    DOCKER_IMAGE = "channamma/happyapp:latest"
     GIT_REPO_NAME = "devops"
     GIT_USER_NAME = "channammarani586"
   }
@@ -12,32 +10,18 @@ pipeline {
   stages {
     stage('Checkout') {
       steps {
-        sh 'echo Checkout Step Passed'
-        git branch: 'main', url: 'https://github.com/channammarani586/devops.git'
+        script {
+          echo "🔄 Checking out repository..."
+          git branch: 'main', url: "https://github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git"
+        }
       }
     }
 
-    stage('Build and Test') {
-      steps {
-        sh 'ls -ltr'
-        sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && mvn clean package'
-      }
-    }
-
-    stage('Build and Push Docker Image') {
-      environment {
-        REGISTRY_CREDENTIALS = credentials('docker-cred')
-      }
+    stage('Pull Docker Image') {
       steps {
         script {
-          sh '''
-            cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-            docker build -t ${DOCKER_IMAGE} .
-          '''
-          def dockerImage = docker.image("${DOCKER_IMAGE}")
-          docker.withRegistry('https://index.docker.io/v1/', "docker-cred") {
-            dockerImage.push()
-          }
+          echo "🐳 Pulling latest Docker image..."
+          sh 'docker pull channamma/happyapp:latest || echo "Failed to pull Docker image"'
         }
       }
     }
@@ -45,18 +29,26 @@ pipeline {
     stage('Update Deployment File') {
       steps {
         withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
-          sh '''
-            git config user.email "sbiradarchannamma@gmail.com"
-            git config user.name "channammarani586"
+          script {
+            echo "🔧 Updating Kubernetes deployment file..."
+            sh '''
+              git config --global user.email "sbiradarchannamma@gmail.com"
+              git config --global user.name "channammarani586"
 
-            # Replace image tag in deployment.yml
-            sed -i "s|channamma/happyapp:.*|channamma/happyapp:${BUILD_NUMBER}|g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+              # Ensure the file exists before modifying it
+              if [ -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml ]; then
+                sed -i "s|image: channamma/happyapp:.*|image: channamma/happyapp:latest|g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+                git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+              else
+                echo "❌ Deployment file not found!"
+                exit 1
+              fi
 
-            git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-            git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/service.yml
-            git commit -m "Update deployment image to version ${BUILD_NUMBER}"
-            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
-          '''
+              git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/service.yml
+              git commit -m "🔄 Updated deployment image to latest"
+              git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main || echo "⚠️ Git push failed!"
+            '''
+          }
         }
       }
     }
@@ -64,10 +56,18 @@ pipeline {
     stage('Deploy to Kubernetes') {
       steps {
         script {
+          echo "🚀 Deploying to Kubernetes..."
           sh '''
-            echo "Deploying application to Kubernetes..."
-            kubectl apply -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-            kubectl apply -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/service.yml
+            if ! command -v kubectl &> /dev/null; then
+              echo "❌ kubectl not found! Please install and configure it."
+              exit 1
+            fi
+
+            echo "📂 Applying deployment..."
+            kubectl apply -f /home/nginx-deployment.yaml || echo "⚠️ Deployment failed!"
+
+            echo "📂 Applying service..."
+            kubectl apply -f /home/nginx-service.yaml || echo "⚠️ Service deployment failed!"
           '''
         }
       }
