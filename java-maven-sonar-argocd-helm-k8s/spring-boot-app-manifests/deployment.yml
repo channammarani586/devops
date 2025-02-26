@@ -17,6 +17,6 @@ spec:
     spec:
       containers:
         - name: java-app
-          image: channamma/happyapp:replaceImageTag  # This will be dynamically updated in the pipeline
+          image: channamma/happyapp:replaceImageTag
           ports:
             - containerPort: 8080
