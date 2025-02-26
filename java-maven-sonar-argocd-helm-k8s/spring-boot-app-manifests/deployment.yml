@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: java-deploy
-  namespace:jenkins
+  namespace: jenkins
   labels:
     app: java-app
 spec:
@@ -17,6 +17,6 @@ spec:
     spec:
       containers:
       - name: happyapp
-        image: channamma/happyapp:${BUILD_NUMBER}  # Updated to use BUILD_NUMBER
+        image: channamma/happyapp:replaceImageTag  # Placeholder for Jenkins update
         ports:
         - containerPort: 8080
