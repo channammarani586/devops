@@ -13,14 +13,21 @@ pipeline {
             }
         }
 
-        stage('Build and Test') {
-            steps {
-                sh '''
-                cd spring-boot-app
-                mvn clean package -DskipTests
-                '''
-            }
-        }
+       stage('Build and Test') {
+    steps {
+        sh '''
+        ls -la
+        if [ -d "spring-boot-app" ]; then
+            cd spring-boot-app
+            mvn clean package -DskipTests
+        else
+            echo "Directory spring-boot-app not found!"
+            exit 1
+        fi
+        '''
+    }
+}
+
 
         stage('Build Docker Image') {
             steps {
