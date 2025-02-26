@@ -1,9 +1,6 @@
 pipeline {
   agent {
-    docker {
-      image 'abhishekf5/maven-abhishek-docker-agent:v1'
-      args '-u root -v /var/run/docker.sock:/var/run/docker.sock'
-    }
+    label 'docker-agent' // Replace with your Jenkins agent label that supports Docker
   }
 
   environment {
