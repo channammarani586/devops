@@ -2,10 +2,9 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "channamma/happyapp:latest"
+        DOCKER_IMAGE = "channamma/happyapp:4"
         GIT_REPO_NAME = "devops"
         GIT_USER_NAME = "channammarani586"
-        IMAGE_VERSION = "4"  // Change this as needed
     }
 
     stages {
