@@ -17,11 +17,6 @@ spec:
     spec:
       containers:
       - name: happyapp
-        image: replaceImageTag  # This will be replaced dynamically in the pipeline
-        ports:
-        - containerPort: 8080
-
-      - name: spring-boot-app
-        image: abhishekf5/ultimate-cicd:replaceImageTag
+        image: channamma/happyapp:replaceImageTag  # This will be replaced dynamically in the pipeline
         ports:
         - containerPort: 8080
