@@ -20,4 +20,3 @@ spec:
           image: channamma/happyapp:replaceImageTag  # This will be dynamically updated in the pipeline
           ports:
             - containerPort: 8080
-      
