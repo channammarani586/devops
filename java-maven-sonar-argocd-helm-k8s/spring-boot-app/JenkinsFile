@@ -3,25 +3,20 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = "channamma/happyapp:${BUILD_NUMBER}"
+        HOME = "/var/jenkins_home"  // Ensure HOME is set for git config
     }
 
     stages {
         stage('Checkout Code') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'github', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
-                    sh '''
-                    git config --global user.name "$GIT_USER"
-                    git config --global user.password "$GIT_PASS"
-                    git clone https://$GIT_USER:$GIT_PASS@github.com/channammarani586/devops.git
-                    '''
-                }
+                checkout scm  // Use Jenkins default SCM checkout
             }
         }
 
         stage('Build and Test') {
             steps {
                 sh '''
-                cd devops/java-maven-sonar-argocd-helm-k8s/spring-boot-app
+                cd spring-boot-app
                 mvn clean package -DskipTests
                 '''
             }
@@ -30,7 +25,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh '''
-                cd devops/java-maven-sonar-argocd-helm-k8s/spring-boot-app
+                cd spring-boot-app
                 docker build -t ${DOCKER_IMAGE} .
                 '''
             }
@@ -54,10 +49,14 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'github', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
                     sh '''
+                    export HOME=/var/jenkins_home  # Ensure HOME is set
                     git config --global user.email "channammarani586@gmail.com"
                     git config --global user.name "channammarani586"
-                    sed -i "s|replaceImageTag|${BUILD_NUMBER}|g" devops/java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-                    git add devops/java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+                    
+                    cd spring-boot-app-manifests
+                    sed -i "s|replaceImageTag|${BUILD_NUMBER}|g" deployment.yml
+                    
+                    git add deployment.yml
                     git commit -m "Update deployment image to version ${BUILD_NUMBER}"
                     git push https://$GIT_USER:$GIT_PASS@github.com/channammarani586/devops HEAD:main
                     '''
@@ -70,7 +69,7 @@ pipeline {
                 withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
                     sh '''
                     export KUBECONFIG=$KUBECONFIG
-                    kubectl apply -f devops/java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/
+                    kubectl apply -f spring-boot-app-manifests/
                     '''
                 }
             }
