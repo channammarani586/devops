@@ -43,7 +43,7 @@ pipeline {
       }
     }
 
-    stage('Update Deployment File') {
+    stage('Update Deployment and Service Files') {
       steps {
         withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
           sh '''
@@ -51,12 +51,23 @@ pipeline {
             git config user.email "sbiradarchannamma@gmail.com"
             git config user.name "channammarani586"
             sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-            git add -A
-            git commit -m "Update deployment image to version ${BUILD_NUMBER}"
+            git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+            git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/service.yml
+            git commit -m "Update deployment and service image to version ${BUILD_NUMBER}"
             git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
           '''
         }
       }
     }
-  }  // <-- This closing bracket was missing!
-}  // <-- Closing bracket for the pipeline block
+
+    stage('Deploy') {
+      steps {
+        sh '''
+          set -x
+          kubectl apply -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+          kubectl apply -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/service.yml
+        '''
+      }
+    }
+  }
+}
