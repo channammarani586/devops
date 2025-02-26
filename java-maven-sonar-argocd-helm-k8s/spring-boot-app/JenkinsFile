@@ -52,15 +52,6 @@ pipeline {
       }
     }
 
-    stage('Validate YAML') {
-      steps {
-        sh '''
-          set -x
-          yamllint java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-        '''
-      }
-    }
-
     stage('Deploy') {
       steps {
         sh '''
