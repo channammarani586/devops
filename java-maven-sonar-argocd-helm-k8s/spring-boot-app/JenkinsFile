@@ -3,25 +3,37 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = 'channamma/happyapp:test'
-        DOCKER_CREDENTIALS_ID = 'docker-hub-credentials' // Make sure this matches your Jenkins credentials ID
+        DOCKER_CREDENTIALS_ID = 'docker-cred' // Updated DockerHub credential ID
+        GITHUB_CREDENTIALS_ID = 'github' // Added GitHub credential ID
+        GITHUB_TOKEN_ID = 'github-token' // Added GitHub token ID
     }
 
     stages {
         stage('Checkout Code') {
             steps {
-                checkout scm
+                withCredentials([usernamePassword(credentialsId: GITHUB_CREDENTIALS_ID, usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+                    sh '''
+                    git config --global user.name "$GIT_USER"
+                    git config --global user.password "$GIT_PASS"
+                    git clone https://$GIT_USER:$GIT_PASS@github.com/your-repo/java-maven-sonar-argocd-helm-k8s.git
+                    '''
+                }
             }
         }
 
         stage('Build Maven Project') {
             steps {
-                sh 'mvn clean package -DskipTests'
+                dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {  
+                    sh 'mvn clean package -DskipTests'
+                }
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t ${DOCKER_IMAGE} .'
+                dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
+                    sh 'docker build -t ${DOCKER_IMAGE} .'
+                }
             }
         }
 
