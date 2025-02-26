@@ -1,82 +1,97 @@
 pipeline {
-  agent any
+    agent any
 
-  environment {
-    DOCKER_IMAGE = "channamma/happyapp:latest"
-    GIT_REPO_NAME = "devops"
-    GIT_USER_NAME = "channammarani586"
-  }
+    environment {
+        DOCKER_IMAGE = "channamma/happyapp:latest"
+        GIT_REPO_NAME = "devops"
+        GIT_USER_NAME = "channammarani586"
+        IMAGE_VERSION = "4"  // Change this as needed
+    }
 
-  stages {
-    stage('Checkout') {
-      steps {
-        script {
-          echo "🔄 Checking out repository..."
-          git branch: 'main', url: "https://github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git"
+    stages {
+        stage('Checkout') {
+            steps {
+                script {
+                    echo "🔄 Checking out repository..."
+                    git branch: 'main', url: "https://github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git"
+                }
+            }
         }
-      }
-    }
 
-    stage('Pull Docker Image') {
-      steps {
-        script {
-          echo "🐳 Pulling latest Docker image..."
-          sh 'docker pull channamma/happyapp:latest || echo "Failed to pull Docker image"'
+        stage('Pull Docker Image') {
+            steps {
+                script {
+                    echo "🐳 Pulling latest Docker image..."
+                    sh """
+                        if ! docker pull ${DOCKER_IMAGE}; then
+                            echo '⚠️ Failed to pull Docker image, proceeding with the build...'
+                        fi
+                    """
+                }
+            }
         }
-      }
-    }
 
-    stage('Update Deployment File') {
-      steps {
-        withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
-          script {
-            echo "🔧 Updating Kubernetes deployment file..."
-            sh '''
-              git config --global user.email "sbiradarchannamma@gmail.com"
-              git config --global user.name "channammarani586"
-
-              # Ensure the file exists before modifying it
-              if [ -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml ]; then
-                sed -i "s|image: channamma/happyapp:.*|image: channamma/happyapp:latest|g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-                git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-              else
-                echo "❌ Deployment file not found!"
-                exit 1
-              fi
-
-              git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/service.yml
-              git commit -m "🔄 Updated deployment image to latest"
-              git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main || echo "⚠️ Git push failed!"
-            '''
-          }
+        stage('Build & Push Docker Image') {
+            steps {
+                script {
+                    echo "📦 Building and pushing Docker image..."
+                    sh """
+                        docker build -t ${DOCKER_IMAGE} .
+                        docker tag ${DOCKER_IMAGE} ${DOCKER_IMAGE}:${IMAGE_VERSION}
+                        docker login -u your-dockerhub-username -p your-dockerhub-password
+                        docker push ${DOCKER_IMAGE}
+                        docker push ${DOCKER_IMAGE}:${IMAGE_VERSION}
+                    """
+                }
+            }
         }
-      }
-    }
 
-    stage('Deploy to Kubernetes') {
-      steps {
-        script {
-          echo "🚀 Deploying to Kubernetes..."
-          sh '''
-            if ! command -v kubectl &> /dev/null; then
-              echo "❌ kubectl not found! Please install and configure it."
-              exit 1
-            fi
+        stage('Update Deployment File') {
+            steps {
+                withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
+                    script {
+                        echo "🔧 Updating Kubernetes deployment file..."
+                        sh """
+                            git config --global user.email "sbiradarchannamma@gmail.com"
+                            git config --global user.name "${GIT_USER_NAME}"
 
-            echo "📂 Applying deployment..."
-            kubectl apply -f /home/nginx-deployment.yaml || echo "⚠️ Deployment failed!"
+                            if [ -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml ]; then
+                                sed -i "s|image: channamma/happyapp:.*|image: ${DOCKER_IMAGE}:${IMAGE_VERSION}|g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+                                git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+                            else
+                                echo "❌ Deployment file not found!"
+                                exit 1
+                            fi
 
-            echo "📂 Applying service..."
-            kubectl apply -f /home/nginx-service.yaml || echo "⚠️ Service deployment failed!"
-          '''
+                            git commit -m "🔄 Updated deployment image to ${IMAGE_VERSION}"
+                            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main || echo "⚠️ Git push failed!"
+                        """
+                    }
+                }
+            }
         }
-      }
-    }
-  }
 
-  post {
-    always {
-      cleanWs() // Clears workspace before the next build
+        stage('Deploy to Kubernetes') {
+            steps {
+                script {
+                    echo "🚀 Deploying to Kubernetes..."
+                    sh """
+                        if ! command -v kubectl &> /dev/null; then
+                            echo "❌ kubectl not found! Please install and configure it."
+                            exit 1
+                        fi
+
+                        kubectl apply -f /home/nginx-deployment.yaml || echo "⚠️ Deployment failed!"
+                        kubectl apply -f /home/nginx-service.yaml || echo "⚠️ Service deployment failed!"
+                    """
+                }
+            }
+        }
     }
-  }
+
+    post {
+        always {
+            cleanWs() // Clears workspace before the next build
+        }
+    }
 }
