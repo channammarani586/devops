@@ -1,13 +1,11 @@
-# You can change this base image to anything else
-# But make sure to use the correct version of Java
+# Use OpenJDK 17 on Alpine (lightweight)
 FROM adoptopenjdk/openjdk17:alpine-jre
 
-# Simply the artifact path
-ARG artifact=target/spring-boot-web.jar
-
+# Set working directory
 WORKDIR /opt/app
 
-COPY ${artifact} app.jar
+# Copy the built JAR file into the image
+COPY target/spring-boot-web.jar app.jar
 
-# This should not be changed
-ENTRYPOINT ["java","-jar","app.jar"]
+# Run the Spring Boot app
+ENTRYPOINT ["java", "-jar", "app.jar"]
