@@ -8,18 +8,18 @@ pipeline {
         GITHUB_TOKEN_ID = 'github-token' // Added GitHub token ID
     }
 
-    stages {
-        stage('Checkout Code') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: GITHUB_CREDENTIALS_ID, usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
-                    sh '''
-                    git config --global user.name "$GIT_USER"
-                    git config --global user.password "$GIT_PASS"
-                    git clone https://$GIT_USER:$GIT_PASS@github.com/your-repo/java-maven-sonar-argocd-helm-k8s.git
-                    '''
-                }
-            }
+   stage('Checkout Code') {
+    steps {
+        withCredentials([usernamePassword(credentialsId: GITHUB_CREDENTIALS_ID, usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+            sh '''
+            export HOME=/tmp  # Set HOME to a writable directory
+            git config --global user.name "$GIT_USER"
+            git config --global user.password "$GIT_PASS"
+            git clone https://$GIT_USER:$GIT_PASS@github.com/channammarani586/devops.git
+            '''
         }
+    }
+}
 
         stage('Build Maven Project') {
             steps {
