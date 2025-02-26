@@ -43,6 +43,15 @@ pipeline {
       }
     }
 
+    stage('Update Deployment YAML') {
+      steps {
+        sh '''
+          set -x
+          sed -i 's|replaceImageTag|${DOCKER_IMAGE}|' java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+        '''
+      }
+    }
+
     stage('Validate YAML') {
       steps {
         sh '''
