@@ -47,7 +47,8 @@ pipeline {
       steps {
         sh '''
           set -x
-          sed -i 's|replaceImageTag|${DOCKER_IMAGE}|' java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+         sed -i "s|replaceImageTag|${DOCKER_IMAGE}|g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+
         '''
       }
     }
