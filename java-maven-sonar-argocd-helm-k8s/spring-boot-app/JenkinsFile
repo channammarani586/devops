@@ -7,76 +7,64 @@ pipeline {
     }
 
     stages {
-        stage('Checkout Code') {
+        stage('Checkout') {
             steps {
-                checkout scm  // Use Jenkins default SCM checkout
+                sh 'echo passed'
+                checkout([$class: 'GitSCM', branches: [[name: 'main']], userRemoteConfigs: [[url: 'https://github.com/channammarani586/devops.git']]])
             }
         }
-
-       stage('Build and Test') {
-    steps {
-        sh '''
-        ls -la
-        if [ -d "spring-boot-app" ]; then
-            cd spring-boot-app
-            mvn clean package -DskipTests
-        else
-            echo "Directory spring-boot-app not found!"
-            exit 1
-        fi
-        '''
-    }
-}
-
-
-        stage('Build Docker Image') {
+    
+        stage('Build and Test') {
             steps {
+                sh 'ls -ltr'
                 sh '''
-                cd spring-boot-app
-                docker build -t ${DOCKER_IMAGE} .
+                cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
+                mvn clean package
                 '''
             }
         }
-
-        stage('Login to Docker Hub') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'docker-cred', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-                }
+    
+        stage('Build and Push Docker Image') {
+            environment {
+                REGISTRY_CREDENTIALS = credentials('docker-cred')
             }
-        }
-
-        stage('Push Docker Image') {
             steps {
-                sh 'docker push ${DOCKER_IMAGE}'
-            }
-        }
-
-        stage('Update Deployment File') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'github', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+                script {
                     sh '''
-                    export HOME=/var/jenkins_home  # Ensure HOME is set
-                    git config --global user.email "channammarani586@gmail.com"
-                    git config --global user.name "channammarani586"
-                    
-                    cd spring-boot-app-manifests
-                    sed -i "s|replaceImageTag|${BUILD_NUMBER}|g" deployment.yml
-                    
-                    git add deployment.yml
-                    git commit -m "Update deployment image to version ${BUILD_NUMBER}"
-                    git push https://$GIT_USER:$GIT_PASS@github.com/channammarani586/devops HEAD:main
+                    cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
+                    docker build -t ${DOCKER_IMAGE} .
+                    echo $REGISTRY_CREDENTIALS_PSW | docker login -u $REGISTRY_CREDENTIALS_USR --password-stdin
+                    docker push ${DOCKER_IMAGE}
                     '''
                 }
             }
         }
-
+    
+        stage('Update Deployment File') {
+            environment {
+                GIT_REPO_NAME = "devops"
+                GIT_USER_NAME = "channammarani586"
+            }
+            steps {
+                withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
+                    sh '''
+                    git config --global user.email "sbiradarchannamma@gmail.com"
+                    git config --global user.name "channammarani586"
+                    sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+                    git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+                    git commit -m "Update deployment image to version ${BUILD_NUMBER}"
+                    git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
+                    '''
+                }
+            }
+        }
+    
         stage('Deploy to Kubernetes') {
             steps {
                 withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
                     sh '''
                     export KUBECONFIG=$KUBECONFIG
-                    kubectl apply -f spring-boot-app-manifests/
+                    kubectl apply -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/
                     '''
                 }
             }
