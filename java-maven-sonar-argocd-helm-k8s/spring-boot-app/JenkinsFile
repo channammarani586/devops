@@ -3,8 +3,9 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = "channamma/happyapp:4"
-        GIT_REPO_NAME = "devops"
-        GIT_USER_NAME = "channammarani586"
+        DOCKER_CREDENTIALS_ID = "docker-cred"
+        KUBERNETES_NAMESPACE = "nginx1"
+        KUBERNETES_DEPLOYMENT = "nginx-deployment"
     }
 
     stages {
@@ -12,54 +13,28 @@ pipeline {
             steps {
                 script {
                     echo "🔄 Checking out repository..."
-                    git branch: 'main', url: "https://github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git"
+                    checkout scm
                 }
             }
         }
 
-        stage('Pull Docker Image') {
+        stage('Build Docker Image') {
             steps {
                 script {
-                    echo "🐳 Pulling latest Docker image..."
-                    sh """
-                        if ! docker pull ${DOCKER_IMAGE}; then
-                            echo '⚠️ Failed to pull Docker image, proceeding with the build...'
-                        fi
-                    """
+                    echo "🐳 Building Docker image..."
+                    sh "docker build -t ${DOCKER_IMAGE} ."
                 }
             }
         }
 
-        stage('Build & Push Docker Image') {
+        stage('Push Docker Image') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     script {
-                        echo "📦 Building and pushing Docker image..."
-                        sh """
-                            docker build -t ${DOCKER_IMAGE} .
-                            echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
-                            docker push ${DOCKER_IMAGE}
-                        """
-                    }
-                }
-            }
-        }
-
-        stage('Update Kubernetes Deployment') {
-            steps {
-                withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
-                    script {
-                        echo "🔧 Updating Kubernetes deployment file..."
-                        sh """
-                            git config --global user.email "sbiradarchannamma@gmail.com"
-                            git config --global user.name "${GIT_USER_NAME}"
-
-                            sed -i "s|image: channamma/happyapp:.*|image: ${DOCKER_IMAGE}|g" /home/nginx-deployment.yaml
-                            
-                            git add /home/nginx-deployment.yaml
-                            git commit -m "🔄 Updated deployment image to ${DOCKER_IMAGE}"
-                            git push https://${GIT_USER_NAME}:${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main || echo "⚠️ Git push failed!"
-                        """
+                        echo "🔐 Logging in to Docker Hub..."
+                        sh "echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin"
+                        echo "📤 Pushing Docker image..."
+                        sh "docker push ${DOCKER_IMAGE}"
                     }
                 }
             }
@@ -68,15 +43,10 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    echo "🚀 Deploying to Kubernetes..."
+                    echo "🚀 Updating Kubernetes deployment..."
                     sh """
-                        if ! command -v kubectl &> /dev/null; then
-                            echo "❌ kubectl not found! Please install and configure it."
-                            exit 1
-                        fi
-
-                        kubectl apply -f /home/nginx-deployment.yaml || echo "⚠️ Deployment failed!"
-                        kubectl apply -f /home/nginx-service.yaml || echo "⚠️ Service deployment failed!"
+                    kubectl set image deployment/${KUBERNETES_DEPLOYMENT} nginx=${DOCKER_IMAGE} -n ${KUBERNETES_NAMESPACE}
+                    kubectl rollout status deployment/${KUBERNETES_DEPLOYMENT} -n ${KUBERNETES_NAMESPACE}
                     """
                 }
             }
@@ -85,7 +55,8 @@ pipeline {
 
     post {
         always {
-            cleanWs() // Clears workspace before the next build
+            echo "🧹 Cleaning up workspace..."
+            cleanWs()
         }
     }
 }
