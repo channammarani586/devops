@@ -57,6 +57,20 @@ pipeline {
       }
     }
 
+    stage('Install YAML Linter') {
+      steps {
+        sh '''
+          set -e
+          echo "Installing yamllint..."
+          if ! command -v yamllint &> /dev/null; then
+            sudo apt update && sudo apt install -y yamllint || sudo yum install -y yamllint
+          else
+            echo "yamllint is already installed."
+          fi
+        '''
+      }
+    }
+
     stage('Validate YAML') {
       steps {
         sh '''
