@@ -11,7 +11,7 @@ pipeline {
   stages {
     stage('Checkout') {
       steps {
-        echo 'Checking out source code...'
+        echo '🔄 Checking out source code...'
         git branch: 'main', url: 'https://github.com/channammarani586/devops.git'
       }
     }
@@ -20,10 +20,10 @@ pipeline {
       steps {
         sh '''
           set -e
-          echo "Listing project files..."
+          echo "📂 Listing project files..."
           ls -ltr
           cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-          echo "Running Maven build..."
+          echo "⚙ Running Maven build..."
           mvn clean package
         '''
       }
@@ -34,14 +34,19 @@ pipeline {
         script {
           sh '''
             set -e
+            echo "🐳 Checking if Docker is available..."
+            docker version || { echo "❌ Docker not found!"; exit 1; }
+
             cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-            echo "Building Docker image: ${DOCKER_IMAGE}"
-            docker build -t ${DOCKER_IMAGE} .
+            echo "🔨 Building Docker image: ${DOCKER_IMAGE}"
+            docker build --no-cache -t ${DOCKER_IMAGE} .
+
+            echo "🔑 Logging in to Docker Hub..."
+            echo "${REGISTRY_CREDENTIALS_PSW}" | docker login -u "${REGISTRY_CREDENTIALS_USR}" --password-stdin
+
+            echo "🚀 Pushing Docker image to registry..."
+            docker push ${DOCKER_IMAGE} || { echo "❌ Docker push failed!"; exit 1; }
           '''
-          def dockerImage = docker.image("${DOCKER_IMAGE}")
-          docker.withRegistry('https://index.docker.io/v1/', "docker-cred") {
-            dockerImage.push()
-          }
         }
       }
     }
@@ -50,43 +55,11 @@ pipeline {
       steps {
         sh '''
           set -e
-          echo "Updating deployment YAML with new image tag..."
+          echo "✏ Updating deployment YAML with new image tag..."
           sed -i "s|replaceImageTag|${DOCKER_IMAGE}|g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-          echo "Updated Deployment YAML:"
+
+          echo "📄 Updated Deployment YAML:"
           cat java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-        '''
-      }
-    }
-
-    stage('Install YAML Linter') {
-      steps {
-        sh '''
-          set -e
-          echo "Checking if yamllint is installed..."
-          if ! command -v yamllint &> /dev/null; then
-            echo "Installing yamllint using sudo..."
-            echo "jenkins" | sudo -S apt update && sudo -S apt install -y yamllint || sudo -S yum install -y yamllint
-          else
-            echo "yamllint is already installed."
-          fi
-          yamllint --version
-        '''
-      }
-    }
-
-    stage('Debug YAML Formatting') {
-      steps {
-        sh '''
-          set -e
-          echo "Checking for tabs in YAML file..."
-          cat -A java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-
-          echo "Replacing tabs with spaces (if any)..."
-          expand -t 2 java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml > deployment_fixed.yml
-          mv deployment_fixed.yml java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-
-          echo "Validating YAML syntax using Python..."
-          python3 -c "import yaml; yaml.safe_load(open('java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml'))"
         '''
       }
     }
@@ -95,7 +68,11 @@ pipeline {
       steps {
         sh '''
           set -e
-          echo "Validating YAML syntax using yamllint..."
+          echo "📋 Validating YAML syntax with yamllint..."
+          if ! command -v yamllint &> /dev/null; then
+            echo "🔧 Installing yamllint..."
+            sudo apt update && sudo apt install -y yamllint || sudo yum install -y yamllint
+          fi
           yamllint java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml || exit 1
         '''
       }
@@ -105,10 +82,23 @@ pipeline {
       steps {
         sh '''
           set -e
-          echo "Applying Kubernetes deployment..."
+          echo "🚀 Deploying to Kubernetes..."
           kubectl apply -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml || exit 1
         '''
       }
+    }
+  }
+
+  post {
+    success {
+      echo "🎉 Deployment Successful!"
+    }
+    failure {
+      echo "❌ Deployment Failed. Check logs."
+    }
+    always {
+      echo "🧹 Cleaning up workspace..."
+      cleanWs()
     }
   }
 }
