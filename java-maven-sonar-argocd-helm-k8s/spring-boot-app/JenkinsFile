@@ -53,13 +53,15 @@ pipeline {
       }
     }
 
-    stage('Deploy') {
-      steps {
-        sh '''
-          set -x
-          kubectl apply -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-        '''
-      }
-    }
+stage('Debug Deployment YAML') {
+  steps {
+    sh '''
+      set -x
+      cat java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+      kubectl apply -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+    '''
+  }
+}
+
   }
 }
