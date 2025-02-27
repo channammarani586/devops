@@ -2,66 +2,76 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "channamma/happyapp:${BUILD_NUMBER}"
-        HOME = "/var/snap/jenkins/4814"
+        DOCKER_IMAGE = "channamma/happyapp:${env.BUILD_NUMBER}"
+        REGISTRY_CREDENTIALS = credentials('docker-cred')
+        GIT_REPO_NAME = "devops"
+        GIT_USER_NAME = "channammarani586"
     }
 
     stages {
-        stage('Cleanup Workspace') {
-            steps {
-                echo 'Cleaning up workspace...'
-                deleteDir() // Safer than rm -rf *
-            }
-        }
-
         stage('Checkout') {
             steps {
-                checkout scm
+                echo 'Checking out source code...'
+                git branch: 'main', url: 'https://github.com/channammarani586/devops.git'
             }
         }
 
         stage('Build and Test') {
             steps {
-                sh 'ls -ltr'
                 sh '''
-                cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-                mvn clean package
+                    set -e
+                    echo "Listing project files..."
+                    ls -ltr
+                    cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
+                    echo "Running Maven build..."
+                    mvn clean package
                 '''
             }
         }
 
         stage('Build and Push Docker Image') {
-            environment {
-                REGISTRY_CREDENTIALS = credentials('docker-cred')
-            }
             steps {
                 script {
                     sh '''
-                    cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-                    docker build -t ${DOCKER_IMAGE} .
-                    echo "$REGISTRY_CREDENTIALS_PSW" | docker login -u "$REGISTRY_CREDENTIALS_USR" --password-stdin
-                    docker push ${DOCKER_IMAGE}
+                        set -e
+                        export DOCKER_BUILDKIT=1
+                        cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
+                        echo "Building Docker image: ${DOCKER_IMAGE}"
+                        docker build -t ${DOCKER_IMAGE} .
+                        echo "Logging into Docker Hub..."
+                        echo "$REGISTRY_CREDENTIALS_PSW" | docker login -u "$REGISTRY_CREDENTIALS_USR" --password-stdin
+                        echo "Pushing Docker image..."
+                        docker push ${DOCKER_IMAGE}
                     '''
                 }
             }
         }
 
-        stage('Update Deployment File') {
-            environment {
-                GIT_REPO_NAME = "devops"
-                GIT_USER_NAME = "channammarani586"
-            }
+        stage('Update Deployment YAML') {
             steps {
-                withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
-                    sh '''
-                    git config --global user.email "sbiradarchannamma@gmail.com"
-                    git config --global user.name "channammarani586"
-                    sed -i "s|image: channamma/happyapp:.*|image: channamma/happyapp:${BUILD_NUMBER}|" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-                    git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-                    git commit -m "Update deployment image to version ${BUILD_NUMBER}"
-                    git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
-                    '''
-                }
+                sh '''
+                    set -e
+                    echo "Updating deployment YAML with new image tag..."
+                    sed -i "s|image:.*|image: ${DOCKER_IMAGE}|" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+                    echo "Updated Deployment YAML:"
+                    cat java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+                '''
+            }
+        }
+
+        stage('Validate YAML') {
+            steps {
+                sh '''
+                    set -e
+                    echo "Checking if yamllint is installed..."
+                    if ! command -v yamllint &> /dev/null; then
+                        echo "Installing yamllint..."
+                        sudo apt update && sudo apt install -y yamllint
+                    fi
+                    yamllint --version
+                    echo "Validating YAML syntax..."
+                    yamllint java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+                '''
             }
         }
 
@@ -69,8 +79,10 @@ pipeline {
             steps {
                 withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
                     sh '''
-                    export KUBECONFIG=$KUBECONFIG
-                    kubectl apply -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/
+                        set -e
+                        export KUBECONFIG=$KUBECONFIG
+                        echo "Applying Kubernetes deployment..."
+                        kubectl apply -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/
                     '''
                 }
             }
