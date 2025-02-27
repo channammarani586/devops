@@ -19,4 +19,4 @@ spec:
           image: channamma/happyapp:replaceImageTag
           ports:
             - containerPort: 8080
-
+          imagePullPolicy: Always
