@@ -15,8 +15,7 @@ spec:
         app: spring-boot-app
     spec:
       containers:
-        - name: spring-boot-app
-          image: channamma/happyapp:replaceImageTag
-          ports:
-            - containerPort: 8080
-          imagePullPolicy: Always
+      - name: spring-boot-app
+        image: channamma/happyapp:replaceImageTag
+        ports:
+        - containerPort: 8080
