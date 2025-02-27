@@ -4,8 +4,6 @@ pipeline {
     environment {
         DOCKER_IMAGE = "channamma/happyapp:${BUILD_NUMBER}"
         KUBE_CONFIG = '/root/.kube/config'
-        DOCKER_USERNAME = 'channamma'
-        DOCKER_PASSWORD = 'Channu@914877'
     }
 
     stages {
@@ -24,13 +22,15 @@ pipeline {
 
         stage('Build and Push Docker Image') {
             steps {
-                script {
-                    sh '''
-                        cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-                        docker build -t ${DOCKER_IMAGE} .
-                        echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
-                        docker push ${DOCKER_IMAGE}
-                    '''
+                withCredentials([usernamePassword(credentialsId: 'docker-cred', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    script {
+                        sh '''
+                            cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
+                            docker build -t ${DOCKER_IMAGE} .
+                            echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
+                            docker push ${DOCKER_IMAGE}
+                        '''
+                    }
                 }
             }
         }
