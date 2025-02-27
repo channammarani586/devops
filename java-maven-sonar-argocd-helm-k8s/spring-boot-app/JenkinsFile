@@ -19,9 +19,11 @@ pipeline {
     stage('Build and Test') {
       steps {
         sh '''
-          set -x
+          set -e  # Stop on error
+          echo "Listing project files..."
           ls -ltr
           cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
+          echo "Running Maven build..."
           mvn clean package
         '''
       }
@@ -31,8 +33,9 @@ pipeline {
       steps {
         script {
           sh '''
-            set -x
+            set -e
             cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
+            echo "Building Docker image: ${DOCKER_IMAGE}"
             docker build -t ${DOCKER_IMAGE} .
           '''
           def dockerImage = docker.image("${DOCKER_IMAGE}")
@@ -46,22 +49,32 @@ pipeline {
     stage('Update Deployment YAML') {
       steps {
         sh '''
-          set -x
-         sed -i "s|replaceImageTag|${DOCKER_IMAGE}|g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-
+          set -e
+          echo "Updating deployment YAML with new image tag..."
+          sed -i "s|replaceImageTag|${DOCKER_IMAGE}|g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+          cat java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
         '''
       }
     }
 
-stage('Debug Deployment YAML') {
-  steps {
-    sh '''
-      set -x
-      cat java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-      kubectl apply -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-    '''
-  }
-}
+    stage('Validate YAML') {
+      steps {
+        sh '''
+          set -e
+          echo "Validating YAML syntax..."
+          yamllint java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml || exit 1
+        '''
+      }
+    }
 
+    stage('Deploy to Kubernetes') {
+      steps {
+        sh '''
+          set -e
+          echo "Applying Kubernetes deployment..."
+          kubectl apply -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml || exit 1
+        '''
+      }
+    }
   }
 }
