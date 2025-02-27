@@ -15,7 +15,8 @@ spec:
         app: spring-boot-app
     spec:
       containers:
-      - name: spring-boot-app
-        image: channamma/happyapp:replaceImageTag
-        ports:
-        - containerPort: 8080
+        - name: spring-boot-app
+          image: channamma/happyapp:replaceImageTag
+          ports:
+            - containerPort: 8080
+
