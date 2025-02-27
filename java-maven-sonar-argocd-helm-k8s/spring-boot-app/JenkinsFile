@@ -2,9 +2,10 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_HUB_CREDENTIALS = 'docker-cred'
         DOCKER_IMAGE = "channamma/happyapp:${BUILD_NUMBER}"
         KUBE_CONFIG = '/root/.kube/config'
+        DOCKER_USERNAME = 'channamma'
+        DOCKER_PASSWORD = 'Channu@914877'
     }
 
     stages {
@@ -27,11 +28,9 @@ pipeline {
                     sh '''
                         cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
                         docker build -t ${DOCKER_IMAGE} .
+                        echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
+                        docker push ${DOCKER_IMAGE}
                     '''
-                    def dockerImage = docker.image("${DOCKER_IMAGE}")
-                    docker.withRegistry('https://index.docker.io/v1/', "docker-cred") {
-                        dockerImage.push()
-                    }
                 }
             }
         }
