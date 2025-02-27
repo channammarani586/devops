@@ -11,7 +11,7 @@ pipeline {
   stages {
     stage('Checkout') {
       steps {
-        git branch: 'main', url: 'https://github.com/channammarani586/devops.git'
+        git branch: 'feature2', url: 'https://github.com/channammarani586/devops.git'
       }
     }
 
