@@ -6,6 +6,7 @@ pipeline {
         REGISTRY_CREDENTIALS = credentials('docker-cred')
         GIT_REPO_NAME = "devops"
         GIT_USER_NAME = "channammarani586"
+        HOME="/var/snap/jenkins/4814"
     }
 
     stages {
