@@ -52,6 +52,7 @@ pipeline {
           set -e
           echo "Updating deployment YAML with new image tag..."
           sed -i "s|replaceImageTag|${DOCKER_IMAGE}|g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+          echo "Updated Deployment YAML:"
           cat java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
         '''
       }
@@ -61,13 +62,31 @@ pipeline {
       steps {
         sh '''
           set -e
-          echo "Installing yamllint..."
+          echo "Checking if yamllint is installed..."
           if ! command -v yamllint &> /dev/null; then
             echo "Installing yamllint using sudo..."
             echo "jenkins" | sudo -S apt update && sudo -S apt install -y yamllint || sudo -S yum install -y yamllint
           else
             echo "yamllint is already installed."
           fi
+          yamllint --version
+        '''
+      }
+    }
+
+    stage('Debug YAML Formatting') {
+      steps {
+        sh '''
+          set -e
+          echo "Checking for tabs in YAML file..."
+          cat -A java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+
+          echo "Replacing tabs with spaces (if any)..."
+          expand -t 2 java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml > deployment_fixed.yml
+          mv deployment_fixed.yml java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+
+          echo "Validating YAML syntax using Python..."
+          python3 -c "import yaml; yaml.safe_load(open('java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml'))"
         '''
       }
     }
@@ -76,7 +95,7 @@ pipeline {
       steps {
         sh '''
           set -e
-          echo "Validating YAML syntax..."
+          echo "Validating YAML syntax using yamllint..."
           yamllint java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml || exit 1
         '''
       }
