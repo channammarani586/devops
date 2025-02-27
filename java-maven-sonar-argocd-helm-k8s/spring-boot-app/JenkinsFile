@@ -12,8 +12,12 @@ pipeline {
         stage('Checkout') {
             steps {
                 echo 'Checking out source code...'
-                deleteDir()
-                git branch: "${GIT_BRANCH}", url: "${GIT_REPO}"
+                deleteDir() // Clean workspace before checkout
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: "*/${GIT_BRANCH}"]],
+                    userRemoteConfigs: [[url: GIT_REPO]]
+                ])
             }
         }
 
