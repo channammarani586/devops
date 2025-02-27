@@ -3,6 +3,7 @@ pipeline {
 
   environment {
     DOCKER_IMAGE = "channamma/happyapp:${env.BUILD_NUMBER}"
+    KUBECONFIG = "/var/lib/jenkins/.kube/config"
   }
 
   stages {
