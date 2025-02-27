@@ -4,16 +4,16 @@ pipeline {
     environment {
         DOCKER_IMAGE = "channamma/happyapp:${env.BUILD_NUMBER}"
         REGISTRY_CREDENTIALS = credentials('docker-cred')
-        GIT_REPO_NAME = "devops"
-        GIT_USER_NAME = "channammarani586"
-        HOME="/var/snap/jenkins/4814"
+        GIT_REPO = "https://github.com/channammarani586/devops.git"
+        GIT_BRANCH = "feature1"
     }
 
     stages {
         stage('Checkout') {
             steps {
                 echo 'Checking out source code...'
-                git branch: 'main', url: 'https://github.com/channammarani586/devops.git'
+                deleteDir() // Clean workspace before checkout
+                checkout scmGit(branches: [[name: "${GIT_BRANCH}"]], userRemoteConfigs: [[url: "${GIT_REPO}"]])
             }
         }
 
