@@ -1,9 +1,10 @@
 FROM adoptopenjdk/openjdk11:alpine-jre
 
-ARG artifact=target/spring-boot-web.jar
+ARG JAR_FILE=target/spring-boot-web.jar
 
 WORKDIR /opt/app
 
-COPY ${artifact} app.jar
+# Ensure the JAR file exists before copying
+COPY ${JAR_FILE} app.jar
 
-ENTRYPOINT ["java","-jar","app.jar"]
+ENTRYPOINT ["java", "-jar", "app.jar"]
