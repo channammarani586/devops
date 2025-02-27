@@ -19,7 +19,7 @@ pipeline {
     stage('Build and Test') {
       steps {
         sh '''
-          set -e  # Stop on error
+          set -e
           echo "Listing project files..."
           ls -ltr
           cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
@@ -63,7 +63,8 @@ pipeline {
           set -e
           echo "Installing yamllint..."
           if ! command -v yamllint &> /dev/null; then
-            sudo apt update && sudo apt install -y yamllint || sudo yum install -y yamllint
+            echo "Installing yamllint using sudo..."
+            echo "jenkins" | sudo -S apt update && sudo -S apt install -y yamllint || sudo -S yum install -y yamllint
           else
             echo "yamllint is already installed."
           fi
