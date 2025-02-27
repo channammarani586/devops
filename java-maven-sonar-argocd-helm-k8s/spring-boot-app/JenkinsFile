@@ -3,59 +3,73 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = "channamma/happyapp:${BUILD_NUMBER}"
-        KUBE_CONFIG = '/root/.kube/config'
     }
 
     stages {
+        stage('Cleanup Workspace') {
+            steps {
+                echo 'Cleaning up workspace...'
+                deleteDir() // Safer than rm -rf *
+            }
+        }
+
         stage('Checkout') {
             steps {
-                git branch: 'main', credentialsId: 'GITHUB', url: 'https://github.com/channammarani586/devops.git'
+                checkout scm
             }
         }
 
         stage('Build and Test') {
             steps {
                 sh 'ls -ltr'
-                sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && mvn clean package'
+                sh '''
+                cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
+                mvn clean package
+                '''
             }
         }
 
         stage('Build and Push Docker Image') {
+            environment {
+                REGISTRY_CREDENTIALS = credentials('docker-cred')
+            }
             steps {
-                withCredentials([usernamePassword(credentialsId: 'docker-cred', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                    script {
-                        sh '''
-                            cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-                            docker build -t ${DOCKER_IMAGE} .
-                            echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
-                            docker push ${DOCKER_IMAGE}
-                        '''
-                    }
+                script {
+                    sh '''
+                    cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
+                    docker build -t ${DOCKER_IMAGE} .
+                    echo "$REGISTRY_CREDENTIALS_PSW" | docker login -u "$REGISTRY_CREDENTIALS_USR" --password-stdin
+                    docker push ${DOCKER_IMAGE}
+                    '''
+                }
+            }
+        }
+
+        stage('Update Deployment File') {
+            environment {
+                GIT_REPO_NAME = "devops"
+                GIT_USER_NAME = "channammarani586"
+            }
+            steps {
+                withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
+                    sh '''
+                    git config --global user.email "sbiradarchannamma@gmail.com"
+                    git config --global user.name "channammarani586"
+                    sed -i "s|image: channamma/happyapp:.*|image: channamma/happyapp:${BUILD_NUMBER}|" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+                    git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+                    git commit -m "Update deployment image to version ${BUILD_NUMBER}"
+                    git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
+                    '''
                 }
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
-                script {
+                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
                     sh '''
-                        export KUBECONFIG=${KUBE_CONFIG}
-                        kubectl apply -f /home/maste/Desktop/deployment.yaml -n test
-                    '''
-                }
-            }
-        }
-
-        stage('Update Deployment File in Git') {
-            steps {
-                withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
-                    sh '''
-                        git config --global user.email "sbiradarchannamma@gmail.com"
-                        git config --global user.name "channammarani586"
-                        sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-                        git add -A
-                        git commit -m "Update deployment image to version ${BUILD_NUMBER}"
-                        git push https://${GITHUB_TOKEN}@github.com/channammarani586/devops HEAD:main
+                    export KUBECONFIG=$KUBECONFIG
+                    kubectl apply -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/
                     '''
                 }
             }
