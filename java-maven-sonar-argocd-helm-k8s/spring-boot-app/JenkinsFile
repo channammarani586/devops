@@ -2,10 +2,9 @@ pipeline {
     agent any
 
     environment {
-        // Define Docker Hub credentials and Kubernetes settings
-        DOCKER_HUB_CREDENTIALS = 'docker-cred' // Jenkins credentials ID for Docker Hub
-        DOCKER_IMAGE = "channamma/happyapp:${BUILD_NUMBER}" // Docker image with dynamic build number
-        KUBE_CONFIG = '/root/.kube/config' // Correct kubeconfig path for Kubernetes access
+        DOCKER_HUB_CREDENTIALS = 'docker-cred'
+        DOCKER_IMAGE = "channamma/happyapp:${BUILD_NUMBER}"
+        KUBE_CONFIG = '/root/.kube/config'
     }
 
     stages {
@@ -23,12 +22,12 @@ pipeline {
         }
 
         stage('Build and Push Docker Image') {
-            environment {
-                REGISTRY_CREDENTIALS = credentials('docker-cred')
-            }
             steps {
                 script {
-                    sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && docker build -t ${DOCKER_IMAGE} .'
+                    sh '''
+                        cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
+                        docker build -t ${DOCKER_IMAGE} .
+                    '''
                     def dockerImage = docker.image("${DOCKER_IMAGE}")
                     docker.withRegistry('https://index.docker.io/v1/', "docker-cred") {
                         dockerImage.push()
@@ -40,7 +39,6 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    // Use correct kubeconfig path and deploy to "test" namespace
                     sh '''
                         export KUBECONFIG=${KUBE_CONFIG}
                         kubectl apply -f /home/maste/Desktop/deployment.yaml -n test
@@ -50,19 +48,15 @@ pipeline {
         }
 
         stage('Update Deployment File in Git') {
-            environment {
-                GIT_REPO_NAME = "devops"
-                GIT_USER_NAME = "channammarani586"
-            }
             steps {
                 withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
                     sh '''
-                        git config user.email "sbiradarchannamma@gmail.com"
-                        git config user.name "channammarani586"
+                        git config --global user.email "sbiradarchannamma@gmail.com"
+                        git config --global user.name "channammarani586"
                         sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
                         git add -A
                         git commit -m "Update deployment image to version ${BUILD_NUMBER}"
-                        git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
+                        git push https://${GITHUB_TOKEN}@github.com/channammarani586/devops HEAD:main
                     '''
                 }
             }
