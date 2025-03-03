@@ -7,7 +7,7 @@ spec:
   type: NodePort
   ports:
   - name: http
-    port: 8090
+    port: 80
     targetPort: 8090
     protocol: TCP
   selector:
