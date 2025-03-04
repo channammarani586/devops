@@ -3,3 +3,13 @@ Deploy the NGINX Ingress Controller
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
 
 kubectl get pods -n ingress-nginx
+
+
+echo "172.31.45.98 spring-boot-app.local" | sudo tee -a /etc/hosts
+
+cat /etc/hosts | grep spring-boot-app.local
+
+kubectl rollout restart deployment -n ingress-nginx
+
+curl -v http://spring-boot-app.local
+
