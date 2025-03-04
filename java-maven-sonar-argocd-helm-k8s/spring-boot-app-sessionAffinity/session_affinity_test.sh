@@ -8,11 +8,14 @@ echo "----------------------------------------"
 
 # Run multiple requests
 for i in {1..10}; do
-    POD_IP=$(curl -s $SERVICE_URL | grep "Response from pod:" | awk '{print $4}')
-    
+    RESPONSE=$(curl -s $SERVICE_URL)
+
+    # Extract any unique identifier from the HTML response (hostname or IP)
+    POD_IDENTIFIER=$(echo "$RESPONSE" | grep -oP '(?<=<h1>).*(?=</h1>)')
+
     # Print the response
-    if [ -n "$POD_IP" ]; then
-        echo "Request $i -> Response from Pod: $POD_IP"
+    if [ -n "$POD_IDENTIFIER" ]; then
+        echo "Request $i -> Response Identifier: $POD_IDENTIFIER"
     else
         echo "Request $i -> No valid response"
     fi
