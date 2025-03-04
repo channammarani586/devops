@@ -8,14 +8,15 @@ echo "----------------------------------------"
 
 # Run multiple requests
 for i in {1..10}; do
-    RESPONSE=$(curl -s $SERVICE_URL)
+    RESPONSE=$(curl -s -w "\nNode IP: %{remote_ip}" $SERVICE_URL)
 
-    # Extract any unique identifier from the HTML response (hostname or IP)
+    # Extract a unique identifier from the response (hostname or node IP)
     POD_IDENTIFIER=$(echo "$RESPONSE" | grep -oP '(?<=<h1>).*(?=</h1>)')
+    NODE_IP=$(echo "$RESPONSE" | grep -oP '(?<=Node IP: ).*')
 
     # Print the response
     if [ -n "$POD_IDENTIFIER" ]; then
-        echo "Request $i -> Response Identifier: $POD_IDENTIFIER"
+        echo "Request $i -> Response Identifier: $POD_IDENTIFIER | Node: $NODE_IP"
     else
         echo "Request $i -> No valid response"
     fi
