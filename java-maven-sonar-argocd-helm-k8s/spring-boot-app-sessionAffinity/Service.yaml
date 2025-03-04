@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: spring-boot-app-service
 spec:
-  type: NodePort
+  type: ClusterIP
   sessionAffinity: ClientIP  # Enables sticky sessions
   ports:
   - name: http
