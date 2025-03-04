@@ -1,0 +1,158 @@
+Approaches for Sticky Sessions with Redis or DB
+
+1️⃣ Redis-Based Session Affinity (Recommended)
+Instead of relying on Ingress or Service session affinity, you can store session data in Redis, allowing any pod to retrieve session information.
+
+✅ Steps to Implement:
+Deploy Redis in Kubernetes
+Update Spring Boot App to Use Redis for Sessions
+Modify Ingress to Remove Sticky Cookie Handling
+Test Session Affinity via Redis
+1️⃣ Deploy Redis in Kubernetes
+You can deploy Redis as a standalone instance or a cluster.
+
+🔹 Create redis-deployment.yaml:
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:latest
+        ports:
+        - containerPort: 6379
+```
+---
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+spec:
+  ports:
+    - port: 6379
+      targetPort: 6379
+  selector:
+    app: redis
+  clusterIP: None  # Headless service (for clustering, optional)
+```
+🚀 Deploy it:
+
+```
+kubectl apply -f redis-deployment.yaml
+```
+2️⃣ Configure Spring Boot to Use Redis for Sessions
+Modify your Spring Boot application to store sessions in Redis.
+
+🔹 Add Dependencies (in pom.xml or build.gradle)
+```
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-data-redis</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.springframework.session</groupId>
+    <artifactId>spring-session-data-redis</artifactId>
+</dependency>
+```
+🔹 Configure application.properties
+```
+spring.session.store-type=redis
+spring.redis.host=redis-service
+spring.redis.port=6379
+```
+🚀 Restart the Spring Boot app to use Redis for session storage.
+Now, all pods will retrieve the session from Redis, ensuring users always have a consistent experience.
+
+3️⃣ Modify Ingress to Remove Cookie-Based Sticky Sessions
+Since Redis is handling session persistence, you can remove session affinity settings from your Ingress.
+
+🔹 Update Ingress.yaml:
+
+```
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: spring-boot-app-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/affinity: "none"  # No need for cookie affinity
+spec:
+  rules:
+  - host: spring-boot-app.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: spring-boot-app-service
+            port:
+              number: 80
+```
+🚀 Apply the changes:
+
+```
+kubectl apply -f Ingress.yaml
+```
+4️⃣ Test Session Affinity with Redis
+Now that Redis is storing session data, restart one pod and check if the session persists.
+
+Run a test script:
+```
+for i in {1..10}; do curl -b cookie.txt -c cookie.txt http://spring-boot-app.local; done
+```
+If session affinity works, responses should stay consistent even if the pod changes.
+If the session is lost, check Redis logs:
+```
+kubectl logs -l app=redis
+```
+
+
+🔹 Alternative: Use Database (PostgreSQL, MySQL, MongoDB)
+Instead of Redis, you can store session data in a relational or NoSQL database.
+
+✅ Steps:
+Deploy PostgreSQL or MySQL in Kubernetes
+Configure Spring Boot to store sessions in DB
+Ensure sessions persist across multiple pods
+🔹 Modify application.properties:
+For PostgreSQL:
+```
+spring.session.store-type=jdbc
+spring.datasource.url=jdbc:postgresql://postgres-service:5432/mydb
+spring.datasource.username=myuser
+spring.datasource.password=mypassword
+```
+For MongoDB:
+
+```
+spring.session.store-type=mongodb
+spring.data.mongodb.uri=mongodb://mongo-service:27017/mydb
+```
+🔹 Required Dependencies:
+For PostgreSQL:
+```
+<dependency>
+    <groupId>org.springframework.session</groupId>
+    <artifactId>spring-session-jdbc</artifactId>
+</dependency>
+```
+For MongoDB:
+```
+<dependency>
+    <groupId>org.springframework.session</groupId>
+    <artifactId>spring-session-data-mongodb</artifactId>
+</dependency>
+```
