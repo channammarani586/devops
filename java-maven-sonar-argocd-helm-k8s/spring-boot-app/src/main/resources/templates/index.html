@@ -3,23 +3,22 @@
 <head>
     <meta charset="utf-8">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"/>
-    <link data-th-href="@{/css/main.css?{id}(id=${timestamp})}" rel="stylesheet">
-    <title>CI/CD Master Class By Abhishek Veeramalla</title>
+    <title>This is demo of session affinity</title>
 </head>
 <body>
 
 <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
-    <a class="navbar-brand" href="#">Ultimate CI/CD Pipeline using Java</div></a>
+    <a class="navbar-brand" href="#">Ultimate CI/CD Pipeline using Java</a>
 </nav>
 
 <main role="main" class="container">
     <div class="starter-template">
         <h1 th:text="${title}">Default title.</h1>
         <p th:text="${msg}">Default text.</p>
+        <p><strong>Pod Name:</strong> <span th:text="${pod}"></span></p>
+        <p><strong>Session ID:</strong> <span th:text="${sessionId}"></span></p>
     </div>
 </main>
 
-<script data-th-src="@{/js/main.js}"></script>
 </body>
-
 </html>
