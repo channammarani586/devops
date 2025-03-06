@@ -1,39 +1,25 @@
-package com.abhishek;
-
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
-
-import javax.servlet.http.HttpServletRequest;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
-@SpringBootApplication
-@Controller
-public class StartApplication {
+@RestController
+@RequestMapping("/")
+public class AppController {
 
-    @GetMapping("/")
-    public String index(Model model, HttpServletRequest request) {
-        String hostname = "Unknown";
-        String clientIP = request.getRemoteAddr(); // Get client IP
+    @GetMapping
+    public String getPodDetails() {
+        String podIp = "";
+        String nodeIp = System.getenv("KUBERNETES_NODE_IP"); // Get Node IP from environment
 
         try {
-            hostname = InetAddress.getLocalHost().getHostName(); // Get Pod Name
+            podIp = InetAddress.getLocalHost().getHostAddress(); // Get Pod IP
         } catch (UnknownHostException e) {
-            e.printStackTrace();
+            podIp = "Unknown";
         }
 
-        model.addAttribute("title", "Spring Boot Kubernetes Deployment");
-        model.addAttribute("msg", "This application is deployed on Kubernetes using Argo CD");
-        model.addAttribute("pod", "Pod Name: " + hostname); // Display Pod Name
-        model.addAttribute("clientIP", "Client IP: " + clientIP); // Display Client IP
-
-        return "index";
-    }
-
-    public static void main(String[] args) {
-        SpringApplication.run(StartApplication.class, args);
+        return "<h1>Pod IP: " + podIp + "</h1>\n" +
+               "<h1>Node IP: " + (nodeIp != null ? nodeIp : "Unknown") + "</h1>";
     }
 }
