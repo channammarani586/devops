@@ -1,25 +1,26 @@
 #!/bin/bash
 
-# Define the service URL
-SERVICE_URL="http://10.43.21.67"  # Replace with your service URL
+# Define the service URL (replace with your actual service URL)
+SERVICE_URL="http://10.101.157.245"  # Update with your ClusterIP
 
 echo "Testing session affinity for $SERVICE_URL"
 echo "----------------------------------------"
 
 # Run multiple requests
 for i in {1..10}; do
-    RESPONSE=$(curl -s -w "\nNode IP: %{remote_ip}" $SERVICE_URL)
+    RESPONSE=$(curl -s $SERVICE_URL)
 
-    # Extract a unique identifier from the response (hostname or node IP)
-    POD_IDENTIFIER=$(echo "$RESPONSE" | grep -oP '(?<=<h1>).*(?=</h1>)')
-    NODE_IP=$(echo "$RESPONSE" | grep -oP '(?<=Node IP: ).*')
+    # Extract the Pod IP from the response
+    POD_IP=$(echo "$RESPONSE" | grep -oP '(?<=Pod IP: ).*')
 
     # Print the response
-    if [ -n "$POD_IDENTIFIER" ]; then
-        echo "Request $i -> Response Identifier: $POD_IDENTIFIER | Node: $NODE_IP"
+    if [ -n "$POD_IP" ]; then
+        echo "Pod IP: $POD_IP"
     else
-        echo "Request $i -> No valid response"
+        echo "Pod IP: Unknown"
     fi
+
+    sleep 1  # Adding a small delay between requests
 done
 
 echo "----------------------------------------"
